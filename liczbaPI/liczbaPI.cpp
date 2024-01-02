@@ -4,71 +4,73 @@
 #include <vector>
 #include <chrono>
 
-// Funkcja reprezentująca funkcję podcałkową
-double function(double x) {
+const double a = 0.0;  // Dolna granica przedziału całkowania
+const double b = 1.0;  // Górna granica przedziału całkowania
+
+// Funkcja, której całkę obliczamy (przykładowa funkcja)
+double funkcja(double x) {
     return 4.0 / (1.0 + x * x);
 }
 
-// Funkcja wykonująca obliczenia numeryczne w danym przedziale
-double calculatePi(double start, double end, int numSteps) {
-    double step = (end - start) / numSteps;
-    double sum = 0.0;
+// Funkcja obliczająca przybliżoną wartość PI dla danego przedziału
+double oblicz_pi_dla_przedzialu(double poczatek, double koniec, int liczba_podzialow) {
+    double krok = (koniec - poczatek) / liczba_podzialow;
+    double suma = 0.0;
 
-    for (int i = 0; i < numSteps; ++i) {
-        double x = start + (i + 0.5) * step;
-        sum += function(x);
+    for (int i = 0; i < liczba_podzialow; ++i) {
+        double x = poczatek + (i + 0.5) * krok;
+        suma += funkcja(x);
     }
 
-    return sum * step;
+    return suma * krok;
 }
 
 int main() {
+    int liczba_podzialow, liczba_watkow;
+
     // Ustawienia użytkownika
-    int numThreads, numSteps;
-    std::cout << "Podaj ilosc watkow: ";
-    std::cin >> numThreads;
-    std::cout << "Podaj ilosc krokow calkowania: ";
-    std::cin >> numSteps;
+    std::cout << "Podaj ilość liczb z przedziału całki oznaczonej: ";
+    std::cin >> liczba_podzialow;
 
-    // Początek i koniec przedziału całkowania
-    double start = 0.0;
-    double end = 1.0;
+    std::cout << "Podaj ilość wątków do użycia: ";
+    std::cin >> liczba_watkow;
 
-    // Przygotowanie wątków
-    std::vector<std::thread> threads;
-    std::vector<double> results(numThreads, 0.0);
+    // Wymiary każdego przedziału dla wątków
+    int przedzialy_na_watek = liczba_podzialow / liczba_watkow;
 
-    // Mierzenie czasu rozpoczęcia obliczeń
-    auto startTime = std::chrono::high_resolution_clock::now();
+    // Przygotowanie wektorów do przechowywania wyników i wątków
+    std::vector<std::thread> watki;
+    std::vector<double> wyniki(liczba_watkow, 0.0);
 
-    // Rozpoczęcie obliczeń wątków
-    for (int i = 0; i < numThreads; ++i) {
-        double threadStart = start + i * (end - start) / numThreads;
-        double threadEnd = threadStart + (end - start) / numThreads;
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-        threads.emplace_back([i, threadStart, threadEnd, numSteps, &results]() {
-            results[i] = calculatePi(threadStart, threadEnd, numSteps);
+    // Uruchomienie wątków
+    for (int i = 0; i < liczba_watkow; ++i) {
+        double poczatek_przedzialu = a + i * przedzialy_na_watek * (b - a) / liczba_podzialow;
+        double koniec_przedzialu = a + (i + 1) * przedzialy_na_watek * (b - a) / liczba_podzialow;
+
+        watki.emplace_back([i, poczatek_przedzialu, koniec_przedzialu, przedzialy_na_watek, &wyniki]() {
+            wyniki[i] = oblicz_pi_dla_przedzialu(poczatek_przedzialu, koniec_przedzialu, przedzialy_na_watek);
             });
     }
 
-    // Oczekiwanie na zakończenie wszystkich wątków
-    for (auto& thread : threads) {
-        thread.join();
+    // Poczekaj na zakończenie pracy wątków
+    for (auto& watek : watki) {
+        watek.join();
     }
 
-    // Sumowanie wyników
-    double totalResult = 0.0;
-    for (double result : results) {
-        totalResult += result;
+    // Sumowanie wyników z wątków
+    double wynik = 0.0;
+    for (const auto& wynik_watku : wyniki) {
+        wynik += wynik_watku;
     }
 
-    // Mierzenie czasu zakończenia obliczeń
-    auto endTime = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
     // Wyświetlanie wyników
-    std::cout << "Wynik obliczen: " << totalResult << std::endl;
-    std::cout << "Czas trwania obliczen: " << duration.count() << " ms" << std::endl;
+    std::cout << "Przybliżona wartość liczby PI: " << wynik << std::endl;
+    std::cout << "Czas obliczeń: " << duration.count() << " ms" << std::endl;
 
     return 0;
 }
